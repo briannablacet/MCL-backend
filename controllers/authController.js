@@ -53,3 +53,35 @@ exports.getMe = async (req, res, next) => {
     next(err);
   }
 };
+
+// Get all users (admin only)
+exports.getAllUsers = async (req, res, next) => {
+  try {
+    const result = await authService.getAllUsers();
+    
+    res.status(200).json({
+      status: result.status,
+      data: {
+        users: result.users
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Update user profile
+exports.updateUserProfile = async (req, res, next) => {
+  try {
+    const result = await authService.updateUserProfile();
+    
+    res.status(200).json({
+      status: result.status,
+      data: {
+        user: result.user
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};

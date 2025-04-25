@@ -79,6 +79,40 @@ class AuthService {
     }
   }
 
+async getAllUsers() {
+    try {
+    const users = await this.User.find().select('-password');
+    return {
+        status: 'success',
+        users: users.map(user => user.toObject())
+    };
+    } catch (err) {
+    logger.error(`Get all users error: ${err.message}`);
+    throw err;
+    }
+}
+
+async updateUserInfo(userData){
+    try {
+        const { id, name, email } = userData;
+        if (!id) {
+            throw new AppError('User ID is required', 400);
+        }
+        const user = await this.User.findByIdAndUpdate(id, { name, email }, { new: true });
+        if (!user) {
+            throw new AppError('User not found', 404);
+        }
+        return {
+            status: 'success',
+            message: 'User updated successfully',
+            user: user.toObject()
+        };
+    } catch (err) {
+        logger.error(`Update user error: ${err.message}`);
+        throw err;
+    }   
+}
+
   generateToken(user) {
     return jwt.sign(
       { id: user._id, role: user.role },
