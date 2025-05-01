@@ -1,31 +1,40 @@
 const mongoose = require('mongoose');
 
-const frameworkSchema = new mongoose.Schema({
+const verticalMarketSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
     unique: true
   },
-  description: {
+  lexicon: [{
+    type: String
+  }],
+  styleGuide: {
     type: String,
     required: true
   },
-  structure: {
-    type: Object,
-    required: true
+  complianceNotes: {
+    type: String
   },
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  },
-  isPublic: {
+  features: [{
+    type: String
+  }],
+  isActive: {
     type: Boolean,
-    default: false
+    default: true
+  },
+  version: {
+    type: Number,
+    default: 1
   },
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
   }
-});
+}, { timestamps: true });
 
-module.exports = mongoose.model('Framework', frameworkSchema);
+module.exports = mongoose.model('VerticalMarket', verticalMarketSchema);

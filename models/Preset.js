@@ -1,26 +1,26 @@
 const mongoose = require('mongoose');
 
-const clientSchema = new mongoose.Schema({
+const presetSchema = new mongoose.Schema({
   name: {
     type: String,
+    required: true,
+    unique: true
+  },
+  settings: {
+    type: Object,
     required: true
   },
-  description: {
-    type: String
-  },
-  industry: {
-    type: String
-  },
-  brandVoice: {
-    type: String
-  },
-  targetAudience: {
-    type: String
-  },
-  createdBy: {
+  characterId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+    ref: 'Character'
+  },
+  isDefault: {
+    type: Boolean,
+    default: false
+  },
+  version: {
+    type: Number,
+    default: 1
   },
   createdAt: {
     type: Date,
@@ -30,11 +30,6 @@ const clientSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   }
-});
+}, { timestamps: true });
 
-clientSchema.pre('save', function(next) {
-  this.updatedAt = Date.now();
-  next();
-});
-
-module.exports = mongoose.model('Client', clientSchema);
+module.exports = mongoose.model('Preset', presetSchema);

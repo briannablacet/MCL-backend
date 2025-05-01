@@ -15,6 +15,7 @@ const connectDB = require('./config/db');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 // Import middleware
 const errorMiddleware = require('./middleware/errorMiddleware');
@@ -52,7 +53,8 @@ if (process.env.NODE_ENV === 'development') {
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/documents', documentRoutes); // Assuming you have a documentRoutes.js file
+app.use('/api/documents', documentRoutes); 
+app.use('/api/admin', adminRoutes); 
 
 // Error handling
 app.use(errorMiddleware);

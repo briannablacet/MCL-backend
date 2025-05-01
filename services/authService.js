@@ -10,7 +10,7 @@ class AuthService {
 
   async register(userData) {
     try {
-      const { name, email, password } = userData;
+      const { name, email, password,role } = userData;
 
       // Validate input
       if (!email || !password || !name) {
@@ -23,7 +23,7 @@ class AuthService {
       }
 
       // Create user
-      const user = await this.User.create({ name, email, password });
+      const user = await this.User.create({ name, email, password, role });
 
       return {
         status: 'success',
