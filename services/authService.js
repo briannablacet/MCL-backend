@@ -36,9 +36,8 @@ class AuthService {
     }
   }
 
-  async login(credentials) {
+  async login(email, password) {
     try {
-      const { email, password } = credentials;
 
       if (!email || !password) {
         throw new AppError('Please provide email and password', 400);

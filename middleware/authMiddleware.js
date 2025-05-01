@@ -35,6 +35,7 @@ exports.protect = async (req, res, next) => {
 
     // 4. Attach the user to the request object for access in next middleware or route
     req.user = currentUser;
+    req.user.id= decoded.id; // Attach user ID to request object
     next(); // Proceed to the next middleware or route handler
   } catch (err) {
     logger.error(`Authentication error: ${err.message}`);

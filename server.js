@@ -8,6 +8,7 @@ const path = require('path');
 const fs = require('fs');
 const debug = require('debug')('app:server'); // Debug logging
 const swaggerConfig = require('./config/swagger');
+const documentRoutes = require('./routes/documentRoutes'); // Assuming you have a documentRoutes.js file
 
 // Import DB connector
 const connectDB = require('./config/db');
@@ -51,6 +52,7 @@ if (process.env.NODE_ENV === 'development') {
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/documents', documentRoutes); // Assuming you have a documentRoutes.js file
 
 // Error handling
 app.use(errorMiddleware);

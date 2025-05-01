@@ -5,7 +5,7 @@ exports.register = async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
     
-    const result = await authService.registerUser({ name, email, password });
+    const result = await authService.register({ name, email, password });
     
     res.status(201).json({
       status: result.status,
@@ -24,7 +24,7 @@ exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
     
-    const result = await authService.loginUser(email, password);
+    const result = await authService.login(email, password);
     
     res.status(200).json({
       status: result.status,
@@ -57,6 +57,8 @@ exports.getMe = async (req, res, next) => {
 // Get all users (admin only)
 exports.getAllUsers = async (req, res, next) => {
   try {
+
+    
     const result = await authService.getAllUsers();
     
     res.status(200).json({
