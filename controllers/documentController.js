@@ -67,32 +67,25 @@ exports.perfectProse = async (req, res, next) => {
 
 exports.generateContent = async (req, res, next) => {
   try {
-    const {
-      contentType,
-      prompt,
-      templateId,
-      variables,
-      audience,
-      keywords,
-      tone,
-      additionalNotes
-    } = req.body;
+    // Get the raw request body
+    const requestBody = req.body;
+    
+    // Extract common fields that exist in all requests
+    const commonFields = {
+      userId: req.user.id,
+      contentType: requestBody.contentType || requestBody.data?.contentType,
+      prompt: requestBody.prompt || requestBody.data?.prompt
+    };
 
-    if (!contentType) {
-      throw new AppError('Content type is required', 400);
-    }
-
+    // Pass the entire request body to the service layer
     const document = await documentService.generateContent(
-      req.user.id,
-      contentType,
+      commonFields.userId,
       {
-        prompt,
-        templateId,
-        variables,
-        audience,
-        keywords,
-        tone,
-        additionalNotes
+        ...commonFields,
+        // Include the entire original request body for flexibility
+        rawRequest: requestBody,
+        // Explicitly pass parameters that might be nested
+        parameters: requestBody.parameters || requestBody.data?.parameters || {}
       }
     );
 
@@ -131,6 +124,23 @@ exports.repurposeContent = async (req, res, next) => {
   }
 };
 
+exports.generateKeyword = async (req, res, next) => {
+  try {
+
+    const document = await documentService.generateKeywords(
+      req.user.id,
+      req.body,
+    );
+    
+    res.status(200).json({
+      status: 'success',
+      document: document
+      
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 exports.getUserDocuments = async (req, res, next) => {
   try {
     const { type } = req.query;

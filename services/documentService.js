@@ -9,8 +9,18 @@ class DocumentService {
       styleChecker: 'You are an expert editor with decades of experience in enforcing style guide compliance.',
       prosePerfector: 'You are an expert editor with decades of experience in professional editing.',
       contentGenerator: 'You are an expert content creator specializing in creating high-quality content.',
-      contentRepurposer: 'You are an expert content strategist who specializes in repurposing content across different formats.'
+      contentRepurposer: 'You are an expert content strategist who specializes in repurposing content across different formats.',
+      keywordGenerator: 'You are an SEO expert specialized in keyword research.'
     };
+      // Define valid document types
+      this.DOCUMENT_TYPES = {
+        GENERATED: 'generated',
+        HUMANIZED: 'humanized',
+        STYLE_CHECKED: 'style-checked',
+        REPURPOSED: 'repurposed',
+        KEYWORD_RESEARCH: 'keyword-research'
+      };
+    
   }
 
   async humanizeContent(userId, content, parameters = {}) {
@@ -85,64 +95,78 @@ class DocumentService {
       return response; // Return raw response if all parsing fails
     }
   }
-  async generateContent(userId, contentType, input) {
-    const {
-      prompt,
-      templateId,
-      variables,
-      audience,
-      keywords,
-      tone,
-      additionalNotes
-    } = input;
-  
+  async generateContent(userId, input) {
     try {
-      let originalContent = prompt;
+      // Destructure with defaults for optional fields
+      const {
+        contentType,
+        prompt,
+        parameters = {},
+        rawRequest = {},
+        templateId,
+        variables
+      } = input;
   
-      // If template is used, create descriptive originalContent
-      if (!originalContent && templateId && variables) {
-        originalContent = `Template: ${templateId}\n` +
-          Object.entries(variables)
-            .map(([key, value]) => `${key}: ${value}`)
-            .join('\n');
+      // Validate required fields
+      if (!contentType) {
+        throw new Error('contentType is required');
       }
   
-      if (!originalContent) {
-        throw new Error('Either prompt or template with variables is required');
-      }
+      // Extract parameters with fallbacks
+      const {
+        audience = '',
+        tone = 'professional',
+        keywords = [],
+        additionalNotes = '',
+        ...otherParams // Capture any additional parameters
+      } = parameters;
   
+      // Prepare content generation data
+      const generationData = {
+        contentType,
+        prompt,
+        audience,
+        tone,
+        keywords,
+        additionalNotes,
+        // Include any other parameters that might be needed
+        ...otherParams
+      };
+  
+      // Generate content - pass the complete data object
       const generatedContent = await this._generateContentWithAI(
         contentType,
-        { 
-          prompt: originalContent, 
-          audience, 
-          keywords, 
-          tone, 
-          additionalNotes 
-        }
+        generationData
       );
   
-      // Ensure we have content even if parsing failed
       const finalContent = generatedContent || "Content generation failed - please try again";
   
+      // Prepare document metadata - include the complete raw request for reference
       const document = await this._saveDocument(userId, {
-        originalContent,
+        originalContent: prompt,
         processedContent: finalContent,
         documentType: 'generated',
         metadata: {
           contentType,
-          audience,
-          keywords,
-          tone,
-          additionalNotes,
-          templateId,
-          variables
+          requestData: rawRequest, // Store complete request for debugging
+          parameters: {
+            audience,
+            tone,
+            keywords,
+            additionalNotes,
+            ...otherParams
+          },
+          // Include template info if available
+          ...(templateId && { templateId, variables })
         }
       });
   
       return document;
     } catch (error) {
-      logger.error(`Content generation failed: ${error.message}`);
+      logger.error(`Content generation failed: ${error.message}`, {
+        input, // Log complete input for debugging
+        stack: error.stack
+      });
       throw error;
     }
   }
@@ -161,11 +185,67 @@ class DocumentService {
     });
   }
 
+  async generateKeywords(userId, requestBody) {
+    try {
+      // Extract context from the request body structure
+      const context = requestBody.data?.context;
+      if (!context) {
+        throw new Error('Missing context in request body');
+      }
+
+      // Generate the prompt
+      const prompt = this._buildKeywordPrompt(context);
+      
+      // Call OpenAI API
+      const response = await openai.createCompletion(
+        prompt, 
+        this.systemMessages.keywordGenerator,
+        { temperature: 0.7 }
+      );
+
+      // Parse the response
+      let keywordData = this._parseKeywordResponse(response);
+
+      // Save the document
+      this._saveDocument(userId, {
+        originalContent: JSON.stringify(context),
+        processedContent: JSON.stringify(keywordData),
+        documentType: this.DOCUMENT_TYPES.KEYWORD_RESEARCH,
+        metadata: {
+          context,
+          keywordData,
+          generationType: 'keyword-research',
+          requestBody: requestBody 
+        }
+      });
+      console.log('Keyword data saved:', keywordData);
+      return keywordData;
+
+    } catch (error) {
+      logger.error('Keyword generation failed:', error);
+      
+      // Return fallback keywords if generation fails
+      const fallbackKeywords = this._getFallbackKeywords(requestBody.data?.context);
+      return this._saveDocument(userId, {
+        originalContent: JSON.stringify(requestBody.data?.context || {}),
+        processedContent: JSON.stringify(fallbackKeywords),
+        documentType: this.DOCUMENT_TYPES.KEYWORD_RESEARCH,
+        metadata: {
+          context: requestBody.data?.context || {},
+          keywordData: fallbackKeywords,
+          isFallback: true,
+          generationType: 'keyword-research',
+          error: error.message
+        }
+      });
+    }
+  }
+  
   async _saveDocument(userId, documentData) {
     try {
       const document = await Document.create({
         userId,
-        ...documentData
+        ...documentData,
       });
       return document;
     } catch (error) {
@@ -323,6 +403,133 @@ Return your response as JSON with the following structure:
   }
 }`;
   }
+
+  _parseKeywordResponse(response) {
+    try {
+      // First try direct JSON parse
+      return JSON.parse(response);
+    } catch (e) {
+      // If direct parse fails, try extracting from markdown code block
+      const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[1]);
+      }
+      throw new Error('Invalid keyword response format');
+    }
+  }
+
+  _parseKeywordResponse(response) {
+    try {
+      // First try direct JSON parse
+      const parsed = JSON.parse(response);
+      if (parsed.primaryKeywords && parsed.secondaryKeywords) {
+        return parsed;
+      }
+      throw new Error('Invalid keyword structure');
+    } catch (e) {
+      // If direct parse fails, try extracting from markdown code block
+      const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[1]);
+          if (parsed.primaryKeywords && parsed.secondaryKeywords) {
+            return parsed;
+          }
+        } catch (parseError) {
+          logger.error('Failed to parse keyword response:', parseError);
+        }
+      }
+      throw new Error('Invalid keyword response format');
+    }
+  }
+
+  _buildKeywordPrompt(context) {
+    // Extract data from context with proper fallbacks
+    const topicText = context.topic || 
+      (Array.isArray(context.messages) ? context.messages.join(". ") : context.messages) ||
+      "content marketing";
+
+    const audienceText = Array.isArray(context.personas) ? 
+      context.personas.join(", ") : 
+      context.personas || "marketing professionals";
+
+    const contentTypeText = context.contentType || "blog post";
+
+    return `Generate comprehensive SEO keywords for the following content requirements:
+    
+Content Topic: ${topicText}
+Target Audience: ${audienceText}
+Content Type: ${contentTypeText}
+
+Please provide:
+1. 5-7 primary keywords (most important, high-value keywords)
+2. 8-10 secondary keywords (supporting terms, long-tail variations)
+3. 3-4 keyword groups (thematic clusters of related keywords)
+
+Format your response as valid JSON with these exact fields:
+{
+  "primaryKeywords": ["keyword1", "keyword2"],
+  "secondaryKeywords": ["keyword1", "keyword2"],
+  "keywordGroups": [
+    {
+      "category": "group name",
+      "keywords": ["keyword1", "keyword2"]
+    }
+  ]
+}
+
+Ensure the response contains only valid JSON that can be parsed directly.`;
+  }
+
+  _getFallbackKeywords(context = {}) {
+    // Context-aware fallback keywords
+    const baseKeywords = {
+      primaryKeywords: [
+        "content marketing",
+        "blog post",
+        "content creation",
+        "digital marketing",
+        "SEO content"
+      ],
+      secondaryKeywords: [
+        "content strategy",
+        "blogging tips",
+        "content calendar",
+        "content optimization",
+        "audience engagement",
+        "content distribution",
+        "lead generation",
+        "brand awareness"
+      ],
+      keywordGroups: [
+        {
+          category: "Content Types",
+          keywords: ["blog posts", "articles", "guides", "tutorials"]
+        },
+        {
+          category: "Marketing Goals",
+          keywords: ["lead generation", "brand awareness", "engagement", "conversions"]
+        },
+        {
+          category: "SEO",
+          keywords: ["keyword research", "on-page SEO", "backlinks", "ranking"]
+        }
+      ]
+    };
+
+    // Add context-specific keywords if available
+    if (context.topic) {
+      const topicKeywords = context.topic.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+      baseKeywords.primaryKeywords = [...new Set([...topicKeywords, ...baseKeywords.primaryKeywords])];
+    }
+
+    if (context.contentType) {
+      baseKeywords.keywordGroups[0].keywords.unshift(context.contentType.toLowerCase());
+    }
+
+    return baseKeywords;
+  }
+  
 }
 
 

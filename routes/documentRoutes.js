@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const documentController = require("../controllers/documentController");
 const authMiddleware = require("../middleware/authMiddleware");
+const contentHumanizerController = require('../controllers/contentHumanizerController');
+
 
 // Document processing endpoints
 router.post(
@@ -28,6 +30,16 @@ router.post(
   "/repurpose",
   authMiddleware.protect,
   documentController.repurposeContent
+);
+router.post(
+  "/keywords",
+  authMiddleware.protect,
+  documentController.generateKeyword
+);
+router.post(
+  '/humanize',
+  authMiddleware.protect,
+  contentHumanizerController.humanizeContent
 );
 
 // Document retrieval
