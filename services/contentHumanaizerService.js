@@ -1,5 +1,5 @@
 const HumanizedContent = require('../models/HumanizedContent');
-const { openai } = require('../config/');
+const { openai } = require('../config/openai');
 const logger = require('../config/logger');
 
 class ContentHumanizerService {
