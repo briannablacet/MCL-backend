@@ -3,9 +3,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
-const morgan = require('morgan');
 const path = require('path');
-const fs = require('fs');
 const debug = require('debug')('app:server'); // Debug logging
 const swaggerConfig = require('./config/swagger');
 const documentRoutes = require('./routes/documentRoutes'); // Assuming you have a documentRoutes.js file
@@ -27,20 +25,22 @@ const app = express();
 connectDB(); 
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: function (origin, callback) {
+    callback(null, origin || '*'); 
+  },
+  credentials: true
+}));
+app.options('*', cors({
+  origin: function (origin, callback) {
+    callback(null, origin || '*');
+  },
+  credentials: true
+}));
+
 app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Logging to file
-if (!fs.existsSync('./logs')) {
-  fs.mkdirSync('./logs');
-}
-const accessLogStream = fs.createWriteStream(
-  path.join(__dirname, 'logs', 'access.log'),
-  { flags: 'a' }
-);
-app.use(morgan('combined', { stream: accessLogStream }));
 
 // Debug request logger
 if (process.env.NODE_ENV === 'development') {

@@ -9,7 +9,8 @@
     "format": "prettier --write .",
     "docker:build": "docker compose build",
     "docker:up": "docker compose up",
-    "docker:down": "docker compose down"
+    "docker:down": "docker compose down",
+    "build": "echo 'No build step required'"
   },
   "keywords": [],
   "author": "",
