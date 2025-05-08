@@ -9,6 +9,7 @@ exports.register = async (req, res, next) => {
     
     res.status(201).json({
       status: result.status,
+      token: result.token,
       message: result.message,
       data: {
         user: result.user

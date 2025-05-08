@@ -25,8 +25,12 @@ class AuthService {
       // Create user
       const user = await this.User.create({ name, email, password, role });
 
+      // Generate token
+      const token = this.generateToken(user);
+
       return {
         status: 'success',
+        token,
         message: 'User registered successfully',
         user: user.toObject()
       };
