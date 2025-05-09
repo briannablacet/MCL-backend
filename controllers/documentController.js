@@ -150,7 +150,7 @@ exports.getUserDocuments = async (req, res, next) => {
       query.documentType = type;
     }
 
-    const documents = await Document.find(query).sort({ createdAt: -1 });
+    const documents = await documentService.getUserDocuments(userId, query);
     
     res.status(200).json({
       status: 'success',
@@ -163,3 +163,192 @@ exports.getUserDocuments = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.modifyContent = async (req, res, next) => {
+  try {
+    const { content, modifications } = req.body;
+    
+    if (!content || !modifications) {
+      throw new AppError('Content and modifications are required', 400);
+    }
+
+    const document = await documentService.modifyContent(req.user.id, content, modifications);
+    
+    res.status(200).json({
+      status: 'success',
+      data: {
+        document
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.analyzeCompetitors = async (req, res, next) => {
+  try {
+    const { content } = req.body;
+    
+    if (!content) {
+      throw new AppError('Content is required', 400);
+    }
+
+    const document = await documentService.analyzeCompetitors(req.user.id, content);
+    
+    res.status(200).json({
+      status: 'success',
+      data: {
+        document
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.generateValueProposition = async (req, res, next) => {
+  try {
+    const { content } = req.body;
+    
+    if (!content) {
+      throw new AppError('Content is required', 400);
+    }
+
+    const document = await documentService.generateValueProposition(req.user.id, content);
+    
+    res.status(200).json({
+      status: 'success',
+      data: {
+        document
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.generatePersonal = async (req, res, next) => {
+  try {
+    const { content } = req.body;
+    
+    if (!content) {
+      throw new AppError('Content is required', 400);
+    }
+
+    const document = await documentService.generatePersonal(req.user.id, content);
+    
+    res.status(200).json({
+      status: 'success',
+      data: {
+        document
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.lookupKeywordVolume = async (req, res, next) => {
+  try {
+    const { keywords } = req.body;
+    
+    if (!keywords) {
+      throw new AppError('Keywords are required', 400);
+    }
+
+    const document = await documentService.lookupKeywordVolume(req.user.id, keywords);
+    
+    res.status(200).json({
+      status: 'success',
+      data: {
+        document
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.generateVariations = async (req, res, next) => {
+  try {
+    const { content } = req.body;
+    
+    if (!content) {
+      throw new AppError('Content is required', 400);
+    }
+
+    const document = await documentService.generateVariations(req.user.id, content);
+    
+    res.status(200).json({
+      status: 'success',
+      data: {
+        document
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteDocument = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    
+    if (!id) {
+      throw new AppError('Document ID is required', 400);
+    }
+
+    await documentService.deleteDocument(req.user.id, id);
+    
+    res.status(204).json({
+      status: 'success',
+      data: null
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.updateDocument = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { content } = req.body;
+    
+    if (!id || !content) {
+      throw new AppError('Document ID and content are required', 400);
+    }
+
+    const document = await documentService.updateDocument(req.user.id, id, content);
+    
+    res.status(200).json({
+      status: 'success',
+      data: {
+        document
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getDocument = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    
+    if (!id) {
+      throw new AppError('Document ID is required', 400);
+    }
+
+    const document = await documentService.getDocument(req.user.id, id);
+    
+    res.status(200).json({
+      status: 'success',
+      data: {
+        document
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

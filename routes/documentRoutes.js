@@ -41,8 +41,64 @@ router.post(
   authMiddleware.protect,
   contentHumanizerController.humanizeContent
 );
+// modify the content of the document
+router.post(
+  "/modify",
+  authMiddleware.protect,
+  documentController.modifyContent
+);
+// analize competitors 
+router.post(
+  "/competitors",
+  authMiddleware.protect,
+  documentController.analyzeCompetitors
+);
+// value-proposition-generator
+router.post(
+  "/value-proposition",
+  authMiddleware.protect,
+  documentController.generateValueProposition
+);
+// personal generator
+router.post(
+  "/personal-generator",
+  authMiddleware.protect,
+  documentController.generatePersonal
+);
+
+// lookup-keyword-volume
+router.post(
+  "/keyword-volume",
+  authMiddleware.protect,
+  documentController.lookupKeywordVolume
+);
+
+// generate-variations
+router.post(
+  "/variations",
+  authMiddleware.protect,
+  documentController.generateVariations
+);  
+
 
 // Document retrieval
 router.get("/",authMiddleware.protect, documentController.getUserDocuments);
+router.get(
+  "/:id",
+  authMiddleware.protect,
+  documentController.getDocument
+);
+// Document deletion
+router.delete(
+  "/:id",
+  authMiddleware.protect,
+  documentController.deleteDocument
+);
+// Document update
+router.patch(
+  "/:id",
+  authMiddleware.protect,
+  documentController.updateDocument
+);
 
 module.exports = router;
