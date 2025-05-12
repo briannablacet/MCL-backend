@@ -669,7 +669,8 @@ Example:
     const result = await openai.parseJSONResponse(response);
 
     return this._saveDocument(userId, {
-      originalContent: content,
+      // stringify the content to ensure it's stored as a string
+      originalContent: JSON.stringify(content),
       processedContent: result.analysis,
       documentType: "competitor-analysis",
       metadata: parameters,
@@ -694,39 +695,59 @@ Return the analysis as a JSON object with these fields:
   }
 }`;
   }
+  
   async generateValueProposition(userId, content, parameters = {}) {
-    const prompt = this._buildValuePropositionPrompt(content, parameters);
+
+    const prompt = this._buildValuePropositionPrompt(content);
     const response = await openai.createCompletion(
       prompt,
       this.systemMessages.contentGenerator
     );
     const result = await openai.parseJSONResponse(response);
 
+
     return this._saveDocument(userId, {
-      originalContent: content,
+      originalContent: JSON.stringify(content),
       processedContent: result.valueProposition,
       documentType: "value-proposition",
       metadata: parameters,
       stats: result.stats || {},
     });
   }
-  _buildValuePropositionPrompt(content, parameters) {
-    return `Generate a compelling value proposition based on the following content:
-Content: ${content}
-Parameters:
-- Tone: ${parameters.tone || "professional"}
-- Audience: ${parameters.audience || "general"}
-- Keywords: ${parameters.keywords ? parameters.keywords.join(", ") : ""}
-- Additional Notes: ${parameters.additionalNotes || ""}
-Return the value proposition as a JSON object with these fields:
-{
-  "valueProposition": "the generated value proposition",
-  "stats": {
-    "clarityScore": 85,
-    "engagementScore": 90
+  _buildValuePropositionPrompt(content) {
+    const {
+      productInfo = {},
+      competitors = [],
+      industry = 'technology',
+      tone = 'professional',
+      focusAreas = []
+    } = content;
+  
+    return `Create a messaging framework for the following product:
+  
+  Product/Service: ${productInfo.name || 'Unnamed Product'}
+  Description: ${productInfo.description || 'No description provided'}
+  Target Audience: ${Array.isArray(productInfo.targetAudience) ? productInfo.targetAudience.join('; ') : productInfo.targetAudience || 'General'}
+  Industry: ${industry}
+  Competitors: ${Array.isArray(competitors) ? competitors.join(', ') : competitors}
+  Focus Areas: ${Array.isArray(focusAreas) ? focusAreas.join(', ') : focusAreas}
+  Tone: ${tone}
+  
+  Please create a messaging framework with the following components:
+  1. A compelling value proposition (1-2 sentences)
+  2. 3-5 key differentiators that set this product apart
+  3. 3-5 specific benefits for the target audience
+  
+  Format your response as a valid JSON object with these fields:
+  {
+    "valueProposition": "A clear, compelling value proposition statement",
+    "keyDifferentiators": ["differentiator 1", "differentiator 2", "differentiator 3"],
+    "targetedMessages": ["benefit 1", "benefit 2", "benefit 3"]
   }
-}`;
+  
+  Make the content specific, substantive and actionable. Avoid generic marketing language.`;
   }
+  
   async generatePersonal(userId, content, parameters = {}) {
     const prompt = this._buildPersonalGeneratorPrompt(content, parameters);
     const response = await openai.createCompletion(
@@ -736,7 +757,7 @@ Return the value proposition as a JSON object with these fields:
     const result = await openai.parseJSONResponse(response);
 
     return this._saveDocument(userId, {
-      originalContent: content,
+      originalContent: JSON.stringify(content),
       processedContent: result.personalContent,
       documentType: "personal-generator",
       metadata: parameters,

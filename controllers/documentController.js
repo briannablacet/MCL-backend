@@ -4,13 +4,7 @@ const AppError = require('../utils/appError');
 
 exports.humanizeContent = async (req, res, next) => {
   try {
-    const { content, parameters } = req.body;
-    
-    if (!content) {
-      throw new AppError('Content is required', 400);
-    }
-
-    const document = await documentService.humanizeContent(req.user.id, content, parameters);
+    const document = await documentService.humanizeContent(req.user.id, req.body, parameters);
     
     res.status(200).json({
       status: 'success',
@@ -25,13 +19,7 @@ exports.humanizeContent = async (req, res, next) => {
 
 exports.checkStyle = async (req, res, next) => {
   try {
-    const { content, styleGuide } = req.body;
-    
-    if (!content) {
-      throw new AppError('Content is required', 400);
-    }
-
-    const document = await documentService.checkStyle(req.user.id, content, styleGuide);
+    const document = await documentService.checkStyle(req.user.id, req.body, styleGuide);
     
     res.status(200).json({
       status: 'success',
@@ -46,13 +34,8 @@ exports.checkStyle = async (req, res, next) => {
 
 exports.perfectProse = async (req, res, next) => {
   try {
-    const { text, options } = req.body;
-    
-    if (!text) {
-      throw new AppError('Text is required', 400);
-    }
 
-    const document = await documentService.perfectProse(req.user.id, text, options);
+    const document = await documentService.perfectProse(req.user.id, req.body, options);
     
     res.status(200).json({
       status: 'success',
@@ -187,13 +170,8 @@ exports.modifyContent = async (req, res, next) => {
 
 exports.analyzeCompetitors = async (req, res, next) => {
   try {
-    const { content } = req.body;
-    
-    if (!content) {
-      throw new AppError('Content is required', 400);
-    }
 
-    const document = await documentService.analyzeCompetitors(req.user.id, content);
+    const document = await documentService.analyzeCompetitors(req.user.id, req.body.data);
     
     res.status(200).json({
       status: 'success',
@@ -208,13 +186,8 @@ exports.analyzeCompetitors = async (req, res, next) => {
 
 exports.generateValueProposition = async (req, res, next) => {
   try {
-    const { content } = req.body;
-    
-    if (!content) {
-      throw new AppError('Content is required', 400);
-    }
 
-    const document = await documentService.generateValueProposition(req.user.id, content);
+    const document = await documentService.generateValueProposition(req.user.id, req.body);
     
     res.status(200).json({
       status: 'success',
@@ -229,13 +202,8 @@ exports.generateValueProposition = async (req, res, next) => {
 
 exports.generatePersonal = async (req, res, next) => {
   try {
-    const { content } = req.body;
-    
-    if (!content) {
-      throw new AppError('Content is required', 400);
-    }
 
-    const document = await documentService.generatePersonal(req.user.id, content);
+    const document = await documentService.generatePersonal(req.user.id, req.body);
     
     res.status(200).json({
       status: 'success',
