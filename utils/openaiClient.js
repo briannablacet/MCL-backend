@@ -40,6 +40,7 @@ class OpenAIClient {
   async parseJSONResponse(responseText) {
     try {
       // Handle JSON wrapped in markdown code blocks
+      console.log('Response Text:', responseText);
       if (responseText.includes('```json')) {
         const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/);
         if (jsonMatch && jsonMatch[1]) {

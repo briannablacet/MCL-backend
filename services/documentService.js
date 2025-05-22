@@ -695,16 +695,14 @@ Return the analysis as a JSON object with these fields:
   }
 }`;
   }
-  
-  async generateValueProposition(userId, content, parameters = {}) {
 
+  async generateValueProposition(userId, content, parameters = {}) {
     const prompt = this._buildValuePropositionPrompt(content);
     const response = await openai.createCompletion(
       prompt,
       this.systemMessages.contentGenerator
     );
     const result = await openai.parseJSONResponse(response);
-
 
     return this._saveDocument(userId, {
       originalContent: JSON.stringify(content),
@@ -718,19 +716,19 @@ Return the analysis as a JSON object with these fields:
     const {
       productInfo = {},
       competitors = [],
-      industry = 'technology',
-      tone = 'professional',
-      focusAreas = []
+      industry = "technology",
+      tone = "professional",
+      focusAreas = [],
     } = content;
-  
+
     return `Create a messaging framework for the following product:
   
-  Product/Service: ${productInfo.name || 'Unnamed Product'}
-  Description: ${productInfo.description || 'No description provided'}
-  Target Audience: ${Array.isArray(productInfo.targetAudience) ? productInfo.targetAudience.join('; ') : productInfo.targetAudience || 'General'}
+  Product/Service: ${productInfo.name || "Unnamed Product"}
+  Description: ${productInfo.description || "No description provided"}
+  Target Audience: ${Array.isArray(productInfo.targetAudience) ? productInfo.targetAudience.join("; ") : productInfo.targetAudience || "General"}
   Industry: ${industry}
-  Competitors: ${Array.isArray(competitors) ? competitors.join(', ') : competitors}
-  Focus Areas: ${Array.isArray(focusAreas) ? focusAreas.join(', ') : focusAreas}
+  Competitors: ${Array.isArray(competitors) ? competitors.join(", ") : competitors}
+  Focus Areas: ${Array.isArray(focusAreas) ? focusAreas.join(", ") : focusAreas}
   Tone: ${tone}
   
   Please create a messaging framework with the following components:
@@ -747,7 +745,7 @@ Return the analysis as a JSON object with these fields:
   
   Make the content specific, substantive and actionable. Avoid generic marketing language.`;
   }
-  
+
   async generatePersonal(userId, content, parameters = {}) {
     const prompt = this._buildPersonalGeneratorPrompt(content, parameters);
     const response = await openai.createCompletion(
@@ -781,39 +779,76 @@ Return the personalized content as a JSON object with these fields:
   }
 }`;
   }
-  async modifyContent(userId, content, parameters = {}) {
-    const prompt = this._buildModifyPrompt(content, parameters);
-    const response = await openai.createCompletion(
-      prompt,
-      this.systemMessages.contentGenerator
-    );
-    const result = await openai.parseJSONResponse(response);
+  // documentService.js or .ts
+async modifyContent(userId, content, parameters = {}) {
+  const prompt = this._buildModifyPrompt(content, parameters);
 
-    return this._saveDocument(userId, {
-      originalContent: content,
-      processedContent: result.modifiedContent,
-      documentType: "modified",
-      metadata: parameters,
-      stats: result.stats || {},
-    });
+
+  const response = await openai.createCompletion(
+    prompt,
+    this.systemMessages.contentGenerator
+  );
+
+  const parsed = await openai.parseJSONResponse(response);
+
+  const saveDoc= await this._saveDocument(userId, {
+    originalContent: content.originalContent,
+    processedContent: parsed.modifiedContent,
+    documentType: "modified",
+    metadata: parameters,
+    stats: {
+      clarityScore: parsed.stats.clarityScore || 85,
+      engagementScore: parsed.stats.engagementScore || 85,
+    },
+  });
+  return {
+    status: "success",
+    data: {
+      data: saveDoc,
+    }, 
   }
-  _buildModifyPrompt(content, parameters) {
-    return `Modify the following content based on the provided parameters:
-Content: ${content}
-Parameters:
+  
+}
+
+_buildModifyPrompt(data, parameters) {
+  const {
+    originalContent = '',
+    originalTitle = '',
+    userRequest = '',
+    previousMessages = []
+  } = data;
+
+  return `You are an AI assistant that modifies content based on user instructions. 
+You must return a JSON object with only the keys "modifiedContent" and "stats".
+
+Original Title: ${originalTitle}
+User Request: ${userRequest}
+
+Previous Messages:
+${previousMessages.map((m, i) => `${i + 1}. [${m.role}] ${m.content}`).join('\n')}
+
+Modify the following content:
+
+---
+${originalContent}
+---
+
+Apply the following:
 - Tone: ${parameters.tone || "professional"}
 - Audience: ${parameters.audience || "general"}
-- Keywords: ${parameters.keywords ? parameters.keywords.join(", ") : ""}
-- Additional Notes: ${parameters.additionalNotes || ""}
-Return the modified content as a JSON object with these fields:
-{
-  "modifiedContent": "the modified content",
-  "stats": {
-    "clarityScore": 85,
-    "engagementScore": 90
-  }
-}`;
-  }
+- Keywords: ${parameters.keywords?.join(", ") || "None"}
+- Notes: ${parameters.additionalNotes || "None"}
+
+Respond ONLY with raw JSON in a single line. Do NOT include Markdown formatting like \`\`\`json. Do NOT include any explanations or comments.
+
+Expected JSON format:
+{"modifiedContent": "string", "stats": {"clarityScore": number, "engagementScore": number}}
+
+Make sure:
+- All newlines in "modifiedContent" are escaped (\\n)
+- Double quotes inside strings are escaped (\\")
+- The response is a valid JSON string`;
+}
 
   // get user documents
   async getUserDocuments(userId, query = {}) {
@@ -821,8 +856,7 @@ Return the modified content as a JSON object with these fields:
       const documents = await Document.find({
         userId,
         ...query,
-      }).sort({ createdAt: -1 }
-      );
+      }).sort({ createdAt: -1 });
       return documents;
     } catch (error) {
       logger.error(`Failed to retrieve documents: ${error.message}`);

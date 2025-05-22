@@ -15,7 +15,7 @@ const documentSchema = new mongoose.Schema({
   },
   documentType: {
     type: String,
-    enum: ['humanized', 'style-checked', 'repurposed', 'generated','keyword-research','value-proposition','personal-generator','competitor-analysis','lookup-keyword-volume'],
+    enum: ['humanized', 'style-checked', 'repurposed', 'modified','generated','keyword-research','value-proposition','personal-generator','competitor-analysis','lookup-keyword-volume'],
     required: true
   },
   metadata: {

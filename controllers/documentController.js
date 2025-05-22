@@ -149,24 +149,20 @@ exports.getUserDocuments = async (req, res, next) => {
 
 exports.modifyContent = async (req, res, next) => {
   try {
-    const { content, modifications } = req.body;
-    
-    if (!content || !modifications) {
-      throw new AppError('Content and modifications are required', 400);
-    }
+    const { data } = req.body;
 
-    const document = await documentService.modifyContent(req.user.id, content, modifications);
-    
-    res.status(200).json({
+    const document = await documentService.modifyContent(req.user.id, data); 
+
+    return res.status(200).json({
       status: 'success',
-      data: {
-        document
-      }
+      ...document // or `data: { document }`, depending on your frontend expectations
     });
   } catch (error) {
     next(error);
   }
 };
+
+
 
 exports.analyzeCompetitors = async (req, res, next) => {
   try {
