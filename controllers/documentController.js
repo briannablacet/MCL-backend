@@ -236,6 +236,7 @@ exports.lookupKeywordVolume = async (req, res, next) => {
 exports.generateVariations = async (req, res, next) => {
   try {
     const { content } = req.body;
+    console.log('Content:', req);
     
     if (!content) {
       throw new AppError('Content is required', 400);

@@ -88,3 +88,34 @@ exports.updateUserProfile = async (req, res, next) => {
     next(err);
   }
 };
+
+// Refresh token endpoint
+exports.refreshToken = async (req, res, next) => {
+  try {
+    const { refreshToken } = req.body;
+    const result = await authService.refreshToken(refreshToken);
+    res.status(200).json({
+      status: result.status,
+      token: result.token,
+      refreshToken: result.refreshToken,
+      data: { user: result.user }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Reset password endpoint
+exports.resetPassword = async (req, res, next) => {
+  try {
+    const { email, newPassword } = req.body;
+    const result = await authService.resetPassword(email, newPassword);
+    res.status(200).json({
+      status: 'success',
+      message: 'Password reset successfully',
+      data: { user: result.user }
+    });
+  } catch (err) {
+    next(err);
+  }
+};

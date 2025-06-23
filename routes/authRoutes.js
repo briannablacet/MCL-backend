@@ -18,4 +18,10 @@ router.get('/users', authMiddleware.protect, authController.getAllUsers);
 // Get current user (protected route)
 router.get('/me', authMiddleware.protect, authController.getMe);
 
+// Refresh token endpoint
+router.post('/refresh-token', authController.refreshToken);
+
+// Reset password endpoint
+router.post('/reset-password', authController.resetPassword);
+
 module.exports = router;

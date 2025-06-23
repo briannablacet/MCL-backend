@@ -25,12 +25,16 @@ class AuthService {
       // Create user
       const user = await this.User.create({ name, email, password, role });
 
-      // Generate token
+      // Generate tokens
       const token = this.generateToken(user);
+      const refreshToken = this.generateRefreshToken(user);
+      user.refreshToken = refreshToken;
+      await user.save();
 
       return {
         status: 'success',
         token,
+        refreshToken,
         message: 'User registered successfully',
         user: user.toObject()
       };
@@ -42,21 +46,21 @@ class AuthService {
 
   async login(email, password) {
     try {
-
       if (!email || !password) {
         throw new AppError('Please provide email and password', 400);
       }
-
       const user = await this.User.findOne({ email }).select('+password');
       if (!user || !(await user.comparePassword(password))) {
         throw new AppError('Incorrect email or password', 401);
       }
-
       const token = this.generateToken(user);
-
+      const refreshToken = this.generateRefreshToken(user);
+      user.refreshToken = refreshToken;
+      await user.save();
       return {
         status: 'success',
         token,
+        refreshToken,
         user: user.toObject({ virtuals: true })
       };
     } catch (err) {
@@ -120,8 +124,71 @@ async updateUserInfo(userData){
     return jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
+      { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
     );
+  }
+
+  generateRefreshToken(user) {
+    return jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
+    );
+  }
+
+  async refreshToken(oldRefreshToken) {
+    try {
+      if (!oldRefreshToken) {
+        throw new AppError('Refresh token is required', 400);
+      }
+      // Verify refresh token
+      let decoded;
+      try {
+        decoded = jwt.verify(
+          oldRefreshToken,
+          process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET
+        );
+      } catch (err) {
+        throw new AppError('Invalid refresh token', 401);
+      }
+      // Find user and check stored refresh token
+      const user = await this.User.findById(decoded.id);
+      if (!user || user.refreshToken !== oldRefreshToken) {
+        throw new AppError('Refresh token does not match', 401);
+      }
+      // Generate new tokens
+      const token = this.generateToken(user);
+      const refreshToken = this.generateRefreshToken(user);
+      user.refreshToken = refreshToken;
+      await user.save();
+      return {
+        status: 'success',
+        token,
+        refreshToken,
+        user: user.toObject({ virtuals: true })
+      };
+    } catch (err) {
+      logger.error(`Refresh token error: ${err.message}`);
+      throw err;
+    }
+  }
+
+  async resetPassword(email, newPassword) {
+    try {
+      if (!email || !newPassword) {
+        throw new AppError('Email and new password are required', 400);
+      }
+      const user = await this.User.findOne({ email });
+      if (!user) {
+        throw new AppError('User not found', 404);
+      }
+      user.password = newPassword;
+      await user.save();
+      return { user: user.toObject() };
+    } catch (err) {
+      logger.error(`Reset password error: ${err.message}`);
+      throw err;
+    }
   }
 }
 
