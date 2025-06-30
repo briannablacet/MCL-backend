@@ -31,6 +31,43 @@ exports.checkStyle = async (req, res, next) => {
     next(error);
   }
 };
+// Get user's writing style
+exports.getWritingStyle = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId);
+    
+    if (user && user.writingStyle) {
+      res.status(200).json(user.writingStyle);
+    } else {
+      res.status(200).json(null);
+    }
+  } catch (error) {
+    console.error('Error getting writing style:', error);
+    res.status(500).json({ error: 'Failed to get writing style' });
+  }
+};
+
+// Save user's writing style. Befika, this is new. Not sure if we should eliminate exports.getWritingStyle
+exports.setWritingStyle = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { writingStyle } = req.body;
+    
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { writingStyle: writingStyle },
+      { new: true, upsert: true }
+    );
+    
+    console.log('✅ Writing style saved to database for user:', userId);
+    res.status(200).json({ success: true, writingStyle });
+  } catch (error) {
+    console.error('Error saving writing style:', error);
+    res.status(500).json({ error: 'Failed to save writing style' });
+  }
+};
+//End new
 
 exports.perfectProse = async (req, res, next) => {
   try {
