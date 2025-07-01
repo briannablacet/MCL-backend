@@ -31,11 +31,17 @@ router.post(
   authMiddleware.protect,
   documentController.repurposeContent
 );
-router.post(
-  "/keywords",
-  authMiddleware.protect,
-  documentController.generateKeyword
-);
+// POST /api/documents/keywords
+router.post('/keywords', async (req, res) => {
+  try {
+    // Process the request and return keywords
+    // ...
+  } catch (error) {
+    console.error('Error generating keywords:', error);
+    res.status(500).json({ error: 'Failed to generate keywords' });
+  }
+});
+
 router.post(
   '/humanize',
   authMiddleware.protect,
@@ -78,11 +84,16 @@ router.post(
   "/variations",
   authMiddleware.protect,
   documentController.generateVariations
-);  
+);
+router.post(
+  "/writing-style",
+  authMiddleware.protect,
+  documentController.setWritingStyle
+);
 
 
 // Document retrieval
-router.get("/",authMiddleware.protect, documentController.getUserDocuments);
+router.get("/", authMiddleware.protect, documentController.getUserDocuments);
 router.get(
   "/:id",
   authMiddleware.protect,
@@ -99,6 +110,11 @@ router.patch(
   "/:id",
   authMiddleware.protect,
   documentController.updateDocument
+);
+router.get(
+  "/writing-style",
+  authMiddleware.protect,
+  documentController.getWritingStyle
 );
 
 module.exports = router;
