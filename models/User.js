@@ -37,6 +37,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
+  stripeInfo: {
+    customerId: { type: String, default: null },
+    status: { type: String, enum: [ 'active', 'past_due', 'canceled', 'incomplete', 'incomplete_expired', 'trailing', 'unpaid'], default: 'trailing' }
+  },
 });
 
 // Hash password before saving

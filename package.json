@@ -31,6 +31,7 @@
     "morgan": "^1.10.0",
     "next-auth": "^4.24.11",
     "openai": "^4.96.2",
+    "stripe": "^18.3.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "winston": "^3.17.0"
