@@ -6,6 +6,9 @@ const helmet = require('helmet');
 const debug = require('debug')('app:server'); // Debug logging
 const swaggerConfig = require('./config/swagger');
 const documentRoutes = require('./routes/documentRoutes'); // Assuming you have a documentRoutes.js file
+const subscriptionRoutes = require('./routes/subscriptionRoutes');
+
+const stripeWebhooks = require('./webhook/stripeWebhooks'); // Import Stripe webhook controller
 
 // Import DB connector
 const connectDB = require('./config/db');
@@ -22,6 +25,8 @@ const app = express();
 
 // Connect to database
 connectDB(); 
+
+app.use('/webhook/stripe', stripeWebhooks);
 
 // Middleware
 app.use(helmet());
@@ -47,6 +52,7 @@ if (process.env.NODE_ENV === 'development') {
 app.use('/api/auth', authRoutes);
 app.use('/api/documents', documentRoutes); 
 app.use('/api/admin', adminRoutes); 
+app.use('/api/stripe', subscriptionRoutes);
 
 // Error handling
 app.use(errorMiddleware);
