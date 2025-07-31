@@ -1,16 +1,24 @@
 const express = require('express');
 const Stripe = require('stripe');
+const axios = require('axios');
+require('../utils/stripeCron');
 
 const router = express.Router();
 const User = require('../models/User');
 const Subscription = require('../models/Subscription');
 
 const stripeSecret = process.env.STRIPE_SECRET_KEY;
+const hubspotSecret = process.env.HUBSPOT_API_KEY;
 const STRIPE_SUBSCRIBED_WEBHOOK_SECRET = process.env.STRIPE_SUBSCRIBED_WEBHOOK_SECRET;
-const STRIPE_CANCELED_WEBHOOK_SECRET = process.env.STRIPE_CANCELED_WEBHOOK_SECRET;
+const STRIPE_PAYMENT_COMPLETED_WEBHOOK_SECRET = process.env.STRIPE_PAYMENT_COMPLETED_WEBHOOK_SECRET;
 const STRIPE_UPDATED_WEBHOOK_SECRET = process.env.STRIPE_UPDATED_WEBHOOK_SECRET;
 
 const stripe = Stripe(stripeSecret);
+
+const headers = {
+    Authorization: `Bearer ${hubspotSecret}`,
+    'Content-Type': 'application/json'
+}
 
 router.post('/subscribed', express.raw({ type: 'application/json' }), async (req, res) => {
 
@@ -36,78 +44,136 @@ router.post('/subscribed', express.raw({ type: 'application/json' }), async (req
 
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 
-        const currentPeriodStart = subscription.start_date ? new Date(subscription.start_date * 1000) : null;
-        const currentPeriodEnd = new Date();
-        currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
-
-        await Subscription.create({
+        const newSubscription = await Subscription.create({
             userId: metadata.userId,
             stripeCustomerId: customerId,
             stripeSubscriptionId: subscription.id,
             stripePriceId: subscription.items.data[0].price.id,
-            planName: subscription.items.data[0].price.nickname || 'Default Plan',
+            planName: subscription.items.data[0].price.nickname || 'Pro Subscription',
             status: subscription.status,
-            currentPeriodStart: currentPeriodStart,
-            currentPeriodEnd: currentPeriodEnd,
+            currentPeriodStart: subscription.items?.data[0]?.current_period_start ? new Date(subscription.items?.data[0]?.current_period_start * 1000) : null,
+            currentPeriodEnd: subscription.items?.data[0]?.current_period_end ? new Date(subscription.items?.data[0]?.current_period_end * 1000) : null,
             cancelAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : null,
             cancelAtPeriodEnd: subscription.cancel_at_period_end,
             canceledAt: subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : null,
             isActive: subscription.status === 'active',
             metadata: session.metadata,
             currency: subscription.currency,
+            amount: subscription.items?.data[0]?.plan?.amount / 100 || 0
         });
+
+        const user = await User.findOneAndUpdate(
+            { _id: metadata.userId },
+            { $set: { 'stripeInfo.status': subscription.status } },
+            { new: true }
+        );
+
+        const firstName = user.name.split(' ')[0];
+        const lastName = user.name.split(' ').slice(1).join(' ') || '';
+
+        const contactInputs = [{
+            "idProperty": "email",
+            "id": user.email,
+            "properties": {
+              "email": user.email,
+              "lastname": lastName,
+              "firstname": firstName,
+              "db_user_id": user._id.toString(),
+              "stripe_status": subscription.status,
+            }
+        }];
+
+        const createUserUrl = `https://api.hubapi.com/crm/v3/objects/contacts/batch/upsert`;
+        const contacts = await axios.post(createUserUrl,{ inputs: contactInputs },{ headers });
+
+        const contactId = user.hsInfo?.hsContactId || contacts?.data?.results[0]?.id;
+        let dealId = user.hsInfo?.hsDealId;
+
+        const properties = {
+            "subscription_amount": subscription.items?.data[0]?.plan?.amount / 100 || 0,
+            "last_renewal_date": newSubscription.currentPeriodStart.toISOString().split('T')[0],
+            "next_renewal_date": newSubscription.currentPeriodEnd.toISOString().split('T')[0],
+            "stripe_subscription_id": subscription.id,
+            "dealstage": "contractsent",
+            "stripe_status": subscription.status,
+            "db_subscription_id": newSubscription._id.toString(),
+        };
+
+        if (dealId) {
+            const updateDealUrl = `https://api.hubapi.com/crm/v3/objects/deals/${dealId}`;
+            await axios.patch(updateDealUrl, { properties }, { headers });
+        } else {
+            properties.dealname = 'Subscription';
+            properties.pipeline = "default";
+            properties.first_subscription_date = new Date();
+
+            const createDealUrl = `https://api.hubapi.com/crm/v3/objects/deals`;
+        
+            const SimplePublicObjectInputForCreate = { associations: [
+                {"types":[{"associationCategory":"HUBSPOT_DEFINED","associationTypeId":3}],"to":{"id":contactId}}
+            ], properties };
+        
+            const dealResponse = await axios.post(createDealUrl, SimplePublicObjectInputForCreate, { headers });
+            dealId = dealResponse?.data?.id;
+        }
 
         await User.updateOne(
             { _id: metadata.userId },
-            {
-                $set: {
-                    'stripeInfo.status': subscription.status,
-                }
-            }
-        );
+            { $set: { 
+                'hsInfo.hsContactId': contactId,
+                'hsInfo.hsDealId': dealId,
+            } 
+        });
 
     } catch (err) {
         return;
     }
-    }
+  }
 });
 
-router.post('/canceled', express.raw({ type: 'application/json' }), async (req, res) => {
+router.post('/payment-succeeded', express.raw({ type: 'application/json' }), async (req, res) => {
     res.status(200).send('Webhook received');
     const sig = req.headers['stripe-signature'];
 
     let event;
     try {
-        event = stripe.webhooks.constructEvent(req.body, sig, STRIPE_CANCELED_WEBHOOK_SECRET);
+        event = stripe.webhooks.constructEvent(req.body, sig, STRIPE_PAYMENT_COMPLETED_WEBHOOK_SECRET);
     } catch (err) {
         return;
     }
 
-    if (event.type === 'customer.subscription.deleted') {
-        const subscription = event.data.object;
+    if (event.type === 'invoice.payment_succeeded') {
+        const invoice = event.data.object;
 
-        const customerId = subscription.customer;
-        const subscriptionId = subscription.id;
+        try {
+            const user = await User.findOne({ email: invoice.customer_email });
+            const contactId = user?.hsInfo?.hsContactId;
+            const dealId = user?.hsInfo?.hsDealId;
 
-        await User.findOneAndUpdate(
-            { 'stripeInfo.customerId': customerId },
-            {
-            $set: {
-                'stripeInfo.status': subscription.status,
-            },
-            }
-        );
+            const createInvoiceUrl = `https://api.hubapi.com/crm/v3/objects/invoices`;
+            const invoicePayload = {
+                "associations": [
+                    { "types": [{ "associationCategory": "HUBSPOT_DEFINED", "associationTypeId": 177 }], "to": { "id": contactId }},
+                    { "types": [{ "associationCategory": "HUBSPOT_DEFINED", "associationTypeId": 175 }], "to": { "id": dealId }}
+                ],
+                "properties": {
+                  "hs_invoice_date": new Date(invoice.created * 1000),
+                  "hs_currency": invoice.currency,
+                  "subscription_amount": invoice.amount_paid / 100 || 0,
+                  "hs_title": "Pro Subscription",
+                  "stripe_status": 'active',
+                }
+              };
+            
+            const newInvoice = await axios.post(createInvoiceUrl, invoicePayload, { headers });
 
-        await Subscription.findOneAndUpdate(
-            { stripeSubscriptionId: subscriptionId },
-            {
-            $set: {
-                status: subscription.status,
-            },
-            }
-        );
+            user.hsInfo.hsInvoiceId = newInvoice?.data?.id;
+            await user.save();
+            
+        } catch (err) {
+            return;
+        }
     }
-    return;
 });
 
 router.post('/updated', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -121,32 +187,58 @@ router.post('/updated', express.raw({ type: 'application/json' }), async (req, r
         return;
     }
 
-    if (event.type === 'customer.subscription.updated') {
+    if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
         const subscription = event.data.object;
 
         const customerId = subscription.customer;
         const subscriptionId = subscription.id;
 
-        await User.findOneAndUpdate(
-            { 'stripeInfo.customerId': customerId },
-            {
-            $set: {
-                'stripeInfo.status': subscription?.status,
-            },
-            }
-        );
+        try {
+            const user = await User.findOneAndUpdate(
+                { 'stripeInfo.customerId': customerId },
+                {
+                $set: {
+                    'stripeInfo.status': subscription?.status,
+                },
+                }
+            );
 
-        await Subscription.findOneAndUpdate(
-            { stripeSubscriptionId: subscriptionId },
-            {
-            $set: {
-                status: subscription?.status,
-            },
+            await Subscription.findOneAndUpdate(
+                { stripeSubscriptionId: subscriptionId },
+                {
+                $set: {
+                    status: subscription?.status,
+                },
+                }
+            );
+            const properties = {
+                "stripe_status": subscription.status,
+            };
+            if (subscription.status === 'active') {
+                properties.dealstage = "contractsent";
+            } else if (subscription.status === 'past_due') {
+                properties.dealstage = "decisionmakerboughtin";
+            } else if (subscription.status === 'canceled' || subscription.status === 'unpaid') {
+                properties.dealstage = "1763389169";
             }
-        );
+
+            const updateDealUrl = `https://api.hubapi.com/crm/v3/objects/deals/${subscriptionId}?idProperty=stripe_subscription_id`;
+            await axios.patch(updateDealUrl, { properties }, { headers });
+
+            delete properties.dealstage
+
+            if (user?.hsInfo?.hsInvoiceId) {
+                const updateInvoiceUrl = `https://api.hubapi.com/crm/v3/objects/invoices/${user.hsInfo?.hsInvoiceId}`;
+                await axios.patch(updateInvoiceUrl, { properties }, { headers });
+            }
+            if (user?.hsInfo?.hsContactId) {
+                const updateContactUrl = `https://api.hubapi.com/crm/v3/objects/contacts/${user.hsInfo?.hsContactId}`;
+                await axios.patch(updateContactUrl, { properties }, { headers });
+            }
+        } catch (err) {
+            return;
+        }
     }
-
-    return;
 });
 
 module.exports = router;

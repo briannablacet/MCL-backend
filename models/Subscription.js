@@ -48,6 +48,10 @@ const SubscriptionSchema = new Schema({
     required: true
   },
 
+  amount: {
+    type: Number,
+  },
+
   currentPeriodStart: {
     type: Date,
     required: true
