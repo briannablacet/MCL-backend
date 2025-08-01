@@ -53,6 +53,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/documents', documentRoutes); 
 app.use('/api/admin', adminRoutes); 
 app.use('/api/stripe', subscriptionRoutes);
+app.get('/endpoint', (req, res) => {
+  console.log("Hello");
+  res.send("Hello world");
+})
 
 // Error handling
 app.use(errorMiddleware);
