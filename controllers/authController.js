@@ -35,7 +35,7 @@ exports.register = async (req, res, next) => {
     const first_subscription_date = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
 
     const properties = {
-        "dealname": 'Subscription',
+        "dealname": `${name} (Pro Subscription)`,
         "pipeline": "default",
         "dealstage": "appointmentscheduled",
         "first_subscription_date": first_subscription_date,
