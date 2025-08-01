@@ -30,6 +30,7 @@ router.post('/subscribed', express.raw({ type: 'application/json' }), async (req
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, STRIPE_SUBSCRIBED_WEBHOOK_SECRET);
   } catch (err) {
+    console.log("Subscription Webhook Error:", err);
     return;
   }
   
@@ -126,6 +127,7 @@ router.post('/subscribed', express.raw({ type: 'application/json' }), async (req
         });
 
     } catch (err) {
+        console.log("Subscription Error:", err);
         return;
     }
   }
@@ -139,6 +141,7 @@ router.post('/payment-succeeded', express.raw({ type: 'application/json' }), asy
     try {
         event = stripe.webhooks.constructEvent(req.body, sig, STRIPE_PAYMENT_COMPLETED_WEBHOOK_SECRET);
     } catch (err) {
+        console.log("Payment Webhook Error:", err);
         return;
     }
 
@@ -171,6 +174,7 @@ router.post('/payment-succeeded', express.raw({ type: 'application/json' }), asy
             await user.save();
             
         } catch (err) {
+            console.log("Payment Error:", err);
             return;
         }
     }
@@ -184,6 +188,7 @@ router.post('/updated', express.raw({ type: 'application/json' }), async (req, r
     try {
         event = stripe.webhooks.constructEvent(req.body, sig, STRIPE_UPDATED_WEBHOOK_SECRET);
     } catch (err) {
+        console.log("Update Webhook Error:", err);
         return;
     }
 
@@ -236,6 +241,7 @@ router.post('/updated', express.raw({ type: 'application/json' }), async (req, r
                 await axios.patch(updateContactUrl, { properties }, { headers });
             }
         } catch (err) {
+            console.log("Update Error:", err);
             return;
         }
     }
