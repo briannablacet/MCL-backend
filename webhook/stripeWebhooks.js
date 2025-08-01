@@ -260,14 +260,11 @@ router.post('/updated', express.raw({ type: 'application/json' }), async (req, r
 
             delete properties.dealstage
 
-            if (user?.hsInfo?.hsInvoiceId) {
-                const updateInvoiceUrl = `https://api.hubapi.com/crm/v3/objects/invoices/${user.hsInfo?.hsInvoiceId}`;
-                await axios.patch(updateInvoiceUrl, { properties }, { headers });
-            }
-            if (user?.hsInfo?.hsContactId) {
-                const updateContactUrl = `https://api.hubapi.com/crm/v3/objects/contacts/${user.hsInfo?.hsContactId}`;
-                await axios.patch(updateContactUrl, { properties }, { headers });
-            }
+            const updateInvoiceUrl = `https://api.hubapi.com/crm/v3/objects/invoices/${user.hsInfo?.hsInvoiceId}`;
+            await axios.patch(updateInvoiceUrl, { properties }, { headers });
+
+            const updateContactUrl = `https://api.hubapi.com/crm/v3/objects/contacts/${user.hsInfo?.hsContactId}`;
+            await axios.patch(updateContactUrl, { properties }, { headers });
         } catch (err) {
             console.log("Update Error:", err);
         }
