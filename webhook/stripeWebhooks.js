@@ -255,14 +255,10 @@ router.post('/updated', express.raw({ type: 'application/json' }), async (req, r
                 properties.dealstage = "1763389169";
             }
 
-            console.log(properties);
-
             const updateDealUrl = `https://api.hubapi.com/crm/v3/objects/deals/${subscriptionId}?idProperty=stripe_subscription_id`;
             await axios.patch(updateDealUrl, { properties }, { headers });
 
             delete properties.dealstage
-
-            console.log(properties);
 
             const updateInvoiceUrl = `https://api.hubapi.com/crm/v3/objects/invoices/${user.hsInfo?.hsInvoiceId}`;
             await axios.patch(updateInvoiceUrl, { properties }, { headers });
@@ -270,7 +266,7 @@ router.post('/updated', express.raw({ type: 'application/json' }), async (req, r
             const updateContactUrl = `https://api.hubapi.com/crm/v3/objects/contacts/${user.hsInfo?.hsContactId}`;
             await axios.patch(updateContactUrl, { properties }, { headers });
         } catch (err) {
-            console.log("Update Error:", err);
+            console.log("Update Error:", err.response.data.errors);
         }
         res.status(200).send('Webhook received');
     }
