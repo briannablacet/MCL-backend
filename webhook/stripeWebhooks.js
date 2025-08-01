@@ -176,7 +176,6 @@ router.post('/payment-succeeded', express.raw({ type: 'application/json' }), asy
                         "name": `Pro Subscription`,
                         "price": invoice.amount_paid / 100 || 0,
                         "quantity": 1,
-                        "hs_product_id": 121837719232
                     }
                 }
                 const lineItem = await axios.post(createLineItemUrl, lineItemPayload, { headers });
@@ -266,7 +265,7 @@ router.post('/updated', express.raw({ type: 'application/json' }), async (req, r
             const updateContactUrl = `https://api.hubapi.com/crm/v3/objects/contacts/${user.hsInfo?.hsContactId}`;
             await axios.patch(updateContactUrl, { properties }, { headers });
         } catch (err) {
-            console.log("Update Error:", err.response.data.errors);
+            console.log("Update Error:", err);
         }
         res.status(200).send('Webhook received');
     }
