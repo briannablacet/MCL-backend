@@ -269,7 +269,7 @@ router.post('/updated', express.raw({ type: 'application/json' }), async (req, r
                 await axios.patch(updateContactUrl, { properties }, { headers });
             }
         } catch (err) {
-            console.log("Update Error:", err?.response?.data?.errors);
+            console.log("Update Error:", err);
         }
         res.status(200).send('Webhook received');
     }
