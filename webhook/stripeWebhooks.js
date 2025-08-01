@@ -22,8 +22,6 @@ const headers = {
 
 router.post('/subscribed', express.raw({ type: 'application/json' }), async (req, res) => {
 
-  res.status(200).send('Webhook received');
-
   const sig = req.headers['stripe-signature'];
 
   let event;
@@ -31,7 +29,6 @@ router.post('/subscribed', express.raw({ type: 'application/json' }), async (req
     event = stripe.webhooks.constructEvent(req.body, sig, STRIPE_SUBSCRIBED_WEBHOOK_SECRET);
   } catch (err) {
     console.log("Subscription Webhook Error:", err);
-    return;
   }
   
   if (event.type === 'checkout.session.completed') {
@@ -91,6 +88,7 @@ router.post('/subscribed', express.raw({ type: 'application/json' }), async (req
         let dealId = user.hsInfo?.hsDealId;
 
         const properties = {
+            "dealname": `${user?.name} (Pro Subscription)`,
             "subscription_amount": subscription.items?.data[0]?.plan?.amount / 100 || 0,
             "last_renewal_date": newSubscription.currentPeriodStart.toISOString().split('T')[0],
             "next_renewal_date": newSubscription.currentPeriodEnd.toISOString().split('T')[0],
@@ -104,7 +102,6 @@ router.post('/subscribed', express.raw({ type: 'application/json' }), async (req
             const updateDealUrl = `https://api.hubapi.com/crm/v3/objects/deals/${dealId}`;
             await axios.patch(updateDealUrl, { properties }, { headers });
         } else {
-            properties.dealname = 'Subscription';
             properties.pipeline = "default";
             properties.first_subscription_date = new Date();
 
@@ -128,13 +125,12 @@ router.post('/subscribed', express.raw({ type: 'application/json' }), async (req
 
     } catch (err) {
         console.log("Subscription Error:", err);
-        return;
     }
+    res.status(200).send('Webhook received');
   }
 });
 
 router.post('/payment-succeeded', express.raw({ type: 'application/json' }), async (req, res) => {
-    res.status(200).send('Webhook received');
     const sig = req.headers['stripe-signature'];
 
     let event;
@@ -142,7 +138,6 @@ router.post('/payment-succeeded', express.raw({ type: 'application/json' }), asy
         event = stripe.webhooks.constructEvent(req.body, sig, STRIPE_PAYMENT_COMPLETED_WEBHOOK_SECRET);
     } catch (err) {
         console.log("Payment Webhook Error:", err);
-        return;
     }
 
     if (event.type === 'invoice.payment_succeeded') {
@@ -153,30 +148,64 @@ router.post('/payment-succeeded', express.raw({ type: 'application/json' }), asy
             const contactId = user?.hsInfo?.hsContactId;
             const dealId = user?.hsInfo?.hsDealId;
 
-            const createInvoiceUrl = `https://api.hubapi.com/crm/v3/objects/invoices`;
-            const invoicePayload = {
-                "associations": [
-                    { "types": [{ "associationCategory": "HUBSPOT_DEFINED", "associationTypeId": 177 }], "to": { "id": contactId }},
-                    { "types": [{ "associationCategory": "HUBSPOT_DEFINED", "associationTypeId": 175 }], "to": { "id": dealId }}
-                ],
-                "properties": {
-                  "hs_invoice_date": new Date(invoice.created * 1000),
-                  "hs_currency": invoice.currency,
-                  "subscription_amount": invoice.amount_paid / 100 || 0,
-                  "hs_title": "Pro Subscription",
-                  "stripe_status": 'active',
-                }
-              };
-            
-            const newInvoice = await axios.post(createInvoiceUrl, invoicePayload, { headers });
+            if (contactId && dealId) {            
+                const createInvoiceUrl = `https://api.hubapi.com/crm/v3/objects/invoices`;
+                const invoicePayload = {
+                    "associations": [
+                        { "types": [{ "associationCategory": "HUBSPOT_DEFINED", "associationTypeId": 177 }], "to": { "id": contactId }},
+                        { "types": [{ "associationCategory": "HUBSPOT_DEFINED", "associationTypeId": 175 }], "to": { "id": dealId }},
+                    ],
+                    "properties": {
+                        "hs_invoice_date": new Date(invoice.created * 1000),
+                        "hs_currency": invoice.currency.toUpperCase(),
+                        "subscription_amount": invoice.amount_paid / 100 || 0,
+                        "hs_title": `${user?.name} (Pro Subscription)`,
+                        "stripe_status": 'active',
+                        "hs_amount_billed": invoice.amount_paid / 100 || 0,
+                    }
+                };
+                
+                const newInvoice = await axios.post(createInvoiceUrl, invoicePayload, { headers });
 
-            user.hsInfo.hsInvoiceId = newInvoice?.data?.id;
-            await user.save();
+                const createLineItemUrl = `https://api.hubapi.com/crm/v3/objects/line_items`;
+                const lineItemPayload = {
+                    "associations": [
+                        { "types": [{ "associationCategory": "HUBSPOT_DEFINED", "associationTypeId": 410 }], "to": { "id": newInvoice?.data?.id }},
+                    ],
+                    "properties": {
+                        "name": `Pro Subscription`,
+                        "price": invoice.amount_paid / 100 || 0,
+                        "quantity": 1,
+                        "hs_product_id": 121837719232
+                    }
+                }
+                const lineItem = await axios.post(createLineItemUrl, lineItemPayload, { headers });
+    
+                const createPaymentUrl = `https://api.hubapi.com/crm/v3/objects/commerce_payments`;
+                const paymentPayload = {
+                    "associations": [
+                        { "types": [{ "associationCategory": "HUBSPOT_DEFINED", "associationTypeId": 395 }], "to": { "id": lineItem?.data?.id }},
+                    ],
+                    "properties": {
+                        "hs_initiated_date": new Date(),
+                        "hs_billing_bill_to_name": `${user?.name} (Pro Subscription)`,
+                        "hs_initial_amount": parseFloat(invoice.amount_paid) / 100 || 0,
+                        "hs_payment_method_type": 'card',
+                        "hs_latest_status": 'succeeded',
+                        "hs_customer_email": user?.email
+                    }
+                }
+    
+                await axios.post(createPaymentUrl, paymentPayload, { headers });
+
+                user.hsInfo.hsInvoiceId = newInvoice?.data?.id;
+                await user.save();
+            }
             
         } catch (err) {
             console.log("Payment Error:", err);
-            return;
         }
+        res.status(200).send('Webhook received');
     }
 });
 
@@ -189,7 +218,6 @@ router.post('/updated', express.raw({ type: 'application/json' }), async (req, r
         event = stripe.webhooks.constructEvent(req.body, sig, STRIPE_UPDATED_WEBHOOK_SECRET);
     } catch (err) {
         console.log("Update Webhook Error:", err);
-        return;
     }
 
     if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
@@ -241,9 +269,9 @@ router.post('/updated', express.raw({ type: 'application/json' }), async (req, r
                 await axios.patch(updateContactUrl, { properties }, { headers });
             }
         } catch (err) {
-            console.log("Update Error:", err);
-            return;
+            console.log("Update Error:", err?.response?.data?.errors);
         }
+        res.status(200).send('Webhook received');
     }
 });
 
