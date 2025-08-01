@@ -210,7 +210,7 @@ router.post('/payment-succeeded', express.raw({ type: 'application/json' }), asy
 });
 
 router.post('/updated', express.raw({ type: 'application/json' }), async (req, res) => {
-    res.status(200).send('Webhook received');
+
     const sig = req.headers['stripe-signature'];
 
     let event;
